@@ -1,0 +1,39 @@
+name: GitHub Project Launcher
+version: "0.1.0"
+slug: github_project_launcher
+description: Private GitHub launcher for syncing and managing Dale's projects on Home Assistant
+url: https://github.com/you209/Launcher
+arch:
+  - amd64
+startup: application
+boot: manual
+init: false
+webui: "http://[HOST]:[PORT:8000]"
+ports:
+  8000/tcp: 8002
+ports_description:
+  8000/tcp: Launcher web interface
+map:
+  - type: addons
+    read_only: false
+  - type: data
+    read_only: false
+hassio_api: true
+options:
+  github_username: you209
+  launcher_repo: you209/Launcher
+  launcher_branch: main
+  github_token: ""
+  admin_username: admin
+  admin_password: "change-this-now"
+  auto_pull: true
+  sync_interval_minutes: 15
+schema:
+  github_username: str
+  launcher_repo: str
+  launcher_branch: str
+  github_token: password
+  admin_username: str
+  admin_password: password
+  auto_pull: bool
+  sync_interval_minutes: int
