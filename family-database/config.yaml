@@ -1,0 +1,21 @@
+name: Family Database
+version: "0.1.0"
+slug: family_database
+description: FamilyRoot family database and photo archive
+url: https://github.com/you209/Family-Database
+arch:
+  - amd64
+startup: application
+boot: manual
+init: false
+webui: "http://[HOST]:[PORT:5050]"
+ports:
+  5050/tcp: 5050
+ports_description:
+  5050/tcp: Web interface
+map:
+  - type: data
+    read_only: false
+options: {}
+schema: {}
+watchdog: "http://[HOST]:[PORT:5050]/api/health"
