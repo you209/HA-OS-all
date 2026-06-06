@@ -5,6 +5,7 @@ OPTIONS=/data/options.json
 LAUNCHER_DIR=/data/launcher
 VENV_DIR=/data/venv
 LOGS_DIR=/data/logs
+ASKPASS=/tmp/github-askpass.sh
 
 mkdir -p /data "$LOGS_DIR" /addons
 
@@ -44,18 +45,33 @@ PY
 fi
 SECRET_KEY="$(cat /data/secret_key)"
 
-AUTH_HEADER="AUTHORIZATION: bearer ${GITHUB_TOKEN}"
+cat > "$ASKPASS" <<'EOF'
+#!/usr/bin/env sh
+case "$1" in
+  *Username*) echo "x-access-token" ;;
+  *Password*) echo "$GITHUB_TOKEN" ;;
+  *) echo "" ;;
+esac
+EOF
+chmod 700 "$ASKPASS"
+
+export GIT_ASKPASS="$ASKPASS"
+export GIT_TERMINAL_PROMPT=0
+export GITHUB_TOKEN
+
 REPO_URL="https://github.com/${LAUNCHER_REPO}.git"
 
 if [ -d "$LAUNCHER_DIR/.git" ]; then
   echo "Updating Launcher from ${LAUNCHER_REPO}..."
-  git -C "$LAUNCHER_DIR" -c http.https://github.com/.extraheader="$AUTH_HEADER" fetch --depth=1 origin "$LAUNCHER_BRANCH"
+  git -C "$LAUNCHER_DIR" remote set-url origin "$REPO_URL"
+  git -C "$LAUNCHER_DIR" fetch --depth=1 origin "$LAUNCHER_BRANCH"
   git -C "$LAUNCHER_DIR" checkout "$LAUNCHER_BRANCH"
   git -C "$LAUNCHER_DIR" reset --hard "origin/${LAUNCHER_BRANCH}"
 else
   echo "Cloning Launcher from ${LAUNCHER_REPO}..."
   rm -rf "$LAUNCHER_DIR"
-  git -c http.https://github.com/.extraheader="$AUTH_HEADER" clone --depth=1 --branch "$LAUNCHER_BRANCH" "$REPO_URL" "$LAUNCHER_DIR"
+  git clone --depth=1 --branch "$LAUNCHER_BRANCH" "$REPO_URL" "$LAUNCHER_DIR"
+  git -C "$LAUNCHER_DIR" remote set-url origin "$REPO_URL"
 fi
 
 if [ ! -d "$VENV_DIR" ]; then
