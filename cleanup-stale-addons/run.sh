@@ -3,8 +3,8 @@ set -euo pipefail
 
 BASE=/addons
 
-echo "=== Cleanup + Repair Stale Add-on Wrappers ==="
-echo "Checking /addons for old wrappers that still clone private GitHub repos..."
+echo "=== Cleanup + Force Repair Add-on Wrappers ==="
+echo "Using BASE=$BASE"
 
 BAD_PATTERNS=(
   "github.com/you209/Find-My-Local-Pollie.git"
@@ -15,11 +15,11 @@ BAD_PATTERNS=(
 )
 
 CANDIDATE_DIRS=(
-  "/addons/find-my-local-pollie"
-  "/addons/quote-machine"
-  "/addons/st"
-  "/addons/family-database"
-  "/addons/familyroot"
+  "$BASE/find-my-local-pollie"
+  "$BASE/quote-machine"
+  "$BASE/st"
+  "$BASE/family-database"
+  "$BASE/familyroot"
 )
 
 removed=0
@@ -49,12 +49,11 @@ for dir in "${CANDIDATE_DIRS[@]}"; do
   remove_if_bad "$dir"
 done
 
-echo "Searching wider /addons tree for any remaining old private clone Dockerfiles..."
 while IFS= read -r file; do
   dir="$(dirname "$file")"
   case "$dir" in
-    /addons/find_my_local_pollie|/addons/quote_machine|/addons/st_security_tool|/addons/family_database)
-      echo "Repairing managed wrapper instead of deleting: $dir"
+    "$BASE/find_my_local_pollie"|"$BASE/quote_machine"|"$BASE/st_security_tool"|"$BASE/family_database")
+      echo "Overwriting managed wrapper instead of deleting: $dir"
       ;;
     *)
       echo "Removing stale wrapper containing bad Dockerfile: $dir"
@@ -62,12 +61,24 @@ while IFS= read -r file; do
       removed=$((removed + 1))
       ;;
   esac
-done < <(grep -RslE "github.com/you209/(Find-My-Local-Pollie|Quote-Machine|ST|Family-Database)\.git|ghcr\.io/you209/quote-machine-addon" /addons 2>/dev/null || true)
+done < <(grep -RslE "github.com/you209/(Find-My-Local-Pollie|Quote-Machine|ST|Family-Database)\.git|ghcr\.io/you209/quote-machine-addon" "$BASE" 2>/dev/null || true)
 
 write_file() {
   local path="$1"
   mkdir -p "$(dirname "$path")"
   cat > "$path"
+}
+
+note_source() {
+  local dir="$1"
+  local name="$2"
+  if [ -d "$dir/source/.git" ]; then
+    echo "$name source exists: $dir/source"
+  elif [ -d "$dir/source" ]; then
+    echo "$name source folder exists but is not a git checkout: $dir/source"
+  else
+    echo "WARNING: $name source is missing at $dir/source. Run GitHub Project Launcher sync after this repair."
+  fi
 }
 
 repair_node_addon() {
@@ -79,13 +90,9 @@ repair_node_addon() {
   local prebuild="$6"
   local build_cmd="$7"
   local data_dir="$8"
-
   local dir="$BASE/$folder"
-  if [ ! -d "$dir/source" ]; then
-    echo "Skipping $name repair: $dir/source is missing. Run Launcher sync first."
-    return 0
-  fi
 
+  mkdir -p "$dir"
   rm -f "$dir/build.yaml" "$dir/build.yml" "$dir/config.yml"
 
   write_file "$dir/config.yaml" <<EOF
@@ -112,19 +119,14 @@ EOF
 
   write_file "$dir/Dockerfile" <<EOF
 FROM node:20-bookworm-slim
-
 WORKDIR /app
-
 COPY source/package*.json ./
 RUN npm ci || npm install
-
 COPY source/ ./
 $prebuild
 $build_cmd
-
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
-
 EXPOSE 3000
 CMD ["/run.sh"]
 EOF
@@ -143,19 +145,17 @@ EOF
   write_file "$dir/README.md" <<EOF
 # $name
 
-Local Home Assistant add-on generated/repaired by Cleanup Stale Add-on Wrappers.
+Local Home Assistant add-on wrapper generated/repaired by Cleanup Stale Add-on Wrappers.
+Source must be cloned by GitHub Project Launcher into \`source/\`.
 EOF
 
   echo "Repaired wrapper: $dir"
+  note_source "$dir" "$name"
 }
 
 repair_st_addon() {
   local dir="$BASE/st_security_tool"
-  if [ ! -d "$dir/source" ]; then
-    echo "Skipping ST repair: $dir/source is missing. Run Launcher sync first."
-    return 0
-  fi
-
+  mkdir -p "$dir"
   rm -f "$dir/build.yaml" "$dir/build.yml" "$dir/config.yml"
 
   write_file "$dir/config.yaml" <<'EOF'
@@ -187,7 +187,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl libglib2.0-0 libsm6 libxext6 libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 COPY source/ /app/
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+RUN if [ -f /app/backend/requirements.txt ]; then pip install --no-cache-dir -r /app/backend/requirements.txt; elif [ -f /app/requirements.txt ]; then pip install --no-cache-dir -r /app/requirements.txt; fi
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 EXPOSE 8000
@@ -197,9 +197,8 @@ EOF
   write_file "$dir/run.sh" <<'EOF'
 #!/usr/bin/env bash
 set -e
-mkdir -p /data/st
-export ST_DATA_DIR=/data/st
-export PYTHONPATH=/app/backend
+mkdir -p /data/st_security_tool
+export PYTHONPATH=/app/backend:/app
 cd /app/backend
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
 EOF
@@ -208,19 +207,16 @@ EOF
   write_file "$dir/README.md" <<'EOF'
 # ST Security Tool
 
-Local Home Assistant add-on generated/repaired by Cleanup Stale Add-on Wrappers.
+Local Home Assistant add-on wrapper generated/repaired by Cleanup Stale Add-on Wrappers.
+Source must be cloned by GitHub Project Launcher into `source/`.
 EOF
-
   echo "Repaired wrapper: $dir"
+  note_source "$dir" "ST Security Tool"
 }
 
 repair_family_addon() {
   local dir="$BASE/family_database"
-  if [ ! -d "$dir/source" ]; then
-    echo "Skipping FamilyRoot repair: $dir/source is missing. Run Launcher sync first."
-    return 0
-  fi
-
+  mkdir -p "$dir"
   rm -f "$dir/build.yaml" "$dir/build.yml" "$dir/config.yml"
 
   write_file "$dir/config.yaml" <<'EOF'
@@ -257,7 +253,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*
 COPY source/ /app/
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
-RUN cd /app/frontend && npm install && npm run build
+RUN if [ -f /app/frontend/package.json ]; then cd /app/frontend && npm install && npm run build; fi
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 EXPOSE 5050
@@ -267,11 +263,11 @@ EOF
   write_file "$dir/run.sh" <<'EOF'
 #!/usr/bin/env bash
 set -e
-mkdir -p /data/familyroot/data /data/familyroot/media
+mkdir -p /data/family_database/data /data/family_database/media
 rm -rf /app/data
-ln -s /data/familyroot/data /app/data
+ln -s /data/family_database/data /app/data
 rm -rf /app/media
-ln -s /data/familyroot/media /app/media
+ln -s /data/family_database/media /app/media
 cd /app/backend
 exec python app.py
 EOF
@@ -280,17 +276,18 @@ EOF
   write_file "$dir/README.md" <<'EOF'
 # FamilyRoot
 
-Local Home Assistant add-on generated/repaired by Cleanup Stale Add-on Wrappers.
+Local Home Assistant add-on wrapper generated/repaired by Cleanup Stale Add-on Wrappers.
+Source must be cloned by GitHub Project Launcher into `source/`.
 EOF
-
   echo "Repaired wrapper: $dir"
+  note_source "$dir" "FamilyRoot"
 }
 
-repair_node_addon "find_my_local_pollie" "Find My Local Pollie" "find_my_local_pollie" "Find local political representatives from Home Assistant" "3001" "RUN npx prisma generate || true" "RUN npm run build" "/data/find-my-local-pollie"
-repair_node_addon "quote_machine" "Quote Machine" "quote_machine" "Gallagher Security Quoting Tool" "3000" "" "" "/data/quote-machine"
+repair_node_addon "find_my_local_pollie" "Find My Local Pollie" "find_my_local_pollie" "Find local political representatives from Home Assistant" "3001" "RUN npx prisma generate || true" "RUN npm run build" "/data/find_my_local_pollie"
+repair_node_addon "quote_machine" "Quote Machine" "quote_machine" "Gallagher Security Quoting Tool" "3000" "" "" "/data/quote_machine"
 repair_st_addon
 repair_family_addon
 
 echo "Removed $removed stale wrapper folder(s)."
 echo "Now run: ha addons reload"
-echo "=== Cleanup + repair complete ==="
+echo "=== Cleanup + force repair complete ==="
