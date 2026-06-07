@@ -153,6 +153,75 @@ EOF
   note_source "$dir" "$name"
 }
 
+repair_pollie_addon() {
+  local dir="$BASE/find_my_local_pollie"
+  mkdir -p "$dir"
+  rm -f "$dir/build.yaml" "$dir/build.yml" "$dir/config.yml"
+
+  write_file "$dir/config.yaml" <<'EOF'
+name: Find My Local Pollie
+version: "0.1.0"
+slug: find_my_local_pollie
+description: Find local political representatives from Home Assistant
+arch:
+  - amd64
+startup: application
+boot: manual
+init: false
+webui: "http://[HOST]:[PORT:3000]"
+ports:
+  3000/tcp: 3001
+ports_description:
+  3000/tcp: Web interface
+map:
+  - type: data
+    read_only: false
+options: {}
+schema: {}
+EOF
+
+  write_file "$dir/Dockerfile" <<'EOF'
+FROM node:20-bookworm-slim
+WORKDIR /app
+COPY source/package*.json ./
+RUN npm ci || npm install
+RUN npm install -g serve@14.2.4
+COPY source/ ./
+RUN npx prisma generate || true
+RUN npm run build
+COPY run.sh /run.sh
+RUN chmod a+x /run.sh
+EXPOSE 3000
+CMD ["/run.sh"]
+EOF
+
+  write_file "$dir/run.sh" <<'EOF'
+#!/usr/bin/env bash
+set -e
+mkdir -p /data/find_my_local_pollie
+export NODE_ENV=production
+export PORT=3000
+cd /app
+if [ ! -d /app/out ]; then
+  echo "ERROR: /app/out does not exist. The Next.js static export build did not produce an out folder."
+  exit 1
+fi
+exec serve -s /app/out -l tcp://0.0.0.0:3000
+EOF
+  chmod +x "$dir/run.sh"
+
+  write_file "$dir/README.md" <<'EOF'
+# Find My Local Pollie
+
+Local Home Assistant add-on wrapper generated/repaired by Cleanup Stale Add-on Wrappers.
+This app uses Next.js `output: export`, so it is served from the generated `out/` folder with `serve` instead of `next start`.
+Source must be cloned by GitHub Project Launcher into `source/`.
+EOF
+
+  echo "Repaired wrapper: $dir"
+  note_source "$dir" "Find My Local Pollie"
+}
+
 repair_st_addon() {
   local dir="$BASE/st_security_tool"
   mkdir -p "$dir"
@@ -283,7 +352,7 @@ EOF
   note_source "$dir" "FamilyRoot"
 }
 
-repair_node_addon "find_my_local_pollie" "Find My Local Pollie" "find_my_local_pollie" "Find local political representatives from Home Assistant" "3001" "RUN npx prisma generate || true" "RUN npm run build" "/data/find_my_local_pollie"
+repair_pollie_addon
 repair_node_addon "quote_machine" "Quote Machine" "quote_machine" "Gallagher Security Quoting Tool" "3000" "" "" "/data/quote_machine"
 repair_st_addon
 repair_family_addon
