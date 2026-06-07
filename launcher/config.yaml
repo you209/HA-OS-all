@@ -1,5 +1,5 @@
 name: GitHub Project Launcher
-version: "0.2.1"
+version: "0.2.2"
 slug: github_project_launcher
 description: Private GitHub launcher for syncing and managing Dale's projects on Home Assistant
 url: https://github.com/you209/Launcher
@@ -30,18 +30,22 @@ options:
   github_token: ""
   app_repositories:
     - name: Quote-Machine
+      enabled: true
       repo: you209/Quote-Machine
       branch: main
       token: ""
     - name: ST
+      enabled: true
       repo: you209/ST
       branch: main
       token: ""
     - name: Find-My-Local-Pollie
+      enabled: true
       repo: you209/Find-My-Local-Pollie
       branch: main
       token: ""
     - name: Family-Database
+      enabled: true
       repo: you209/Family-Database
       branch: main
       token: ""
@@ -57,6 +61,7 @@ schema:
   github_token: password?
   app_repositories:
     - name: str
+      enabled: bool
       repo: str
       branch: str
       token: password
