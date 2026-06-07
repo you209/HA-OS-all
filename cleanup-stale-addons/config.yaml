@@ -1,11 +1,10 @@
 name: Cleanup Stale Add-on Wrappers
-version: "1.0.0"
+version: "1.1.0"
 slug: cleanup_stale_addons
-description: Removes old local add-on wrapper folders that still contain private GitHub clone Dockerfiles
+description: Removes old local add-on wrappers and recreates missing Dockerfile/config files for Launcher-managed apps
 arch:
   - amd64
   - aarch64
-  - armv7
 startup: once
 boot: manual
 init: false
