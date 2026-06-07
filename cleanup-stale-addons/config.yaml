@@ -1,5 +1,5 @@
 name: Cleanup Stale Add-on Wrappers
-version: "1.4.1"
+version: "1.4.2"
 slug: cleanup_stale_addons
 description: Removes old local add-on wrappers and repairs Launcher-managed apps, including FamilyRoot Debian fixes
 arch:
