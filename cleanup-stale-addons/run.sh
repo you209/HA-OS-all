@@ -3,7 +3,7 @@ set -euo pipefail
 
 BASE=/addons
 
-echo "=== Cleanup + Force Repair Add-on Wrappers ==="
+echo "=== Cleanup + Force Repair Add-on Wrappers v1.4.0 ==="
 echo "Using BASE=$BASE"
 
 BAD_PATTERNS=(
@@ -87,9 +87,7 @@ repair_node_addon() {
   local slug="$3"
   local desc="$4"
   local host_port="$5"
-  local prebuild="$6"
-  local build_cmd="$7"
-  local data_dir="$8"
+  local data_dir="$6"
   local dir="$BASE/$folder"
 
   mkdir -p "$dir"
@@ -117,14 +115,13 @@ options: {}
 schema: {}
 EOF
 
-  write_file "$dir/Dockerfile" <<EOF
+  write_file "$dir/Dockerfile" <<'EOF'
 FROM node:20-bookworm-slim
 WORKDIR /app
 COPY source/package*.json ./
 RUN npm ci || npm install
 COPY source/ ./
-$prebuild
-$build_cmd
+RUN npm run build || true
 COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 EXPOSE 3000
@@ -315,7 +312,7 @@ EOF
 FROM python:3.11-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libatlas-base-dev libglib2.0-0 libsm6 libxext6 libxrender-dev \
+    build-essential libopenblas-dev libglib2.0-0 libsm6 libxext6 libxrender-dev \
     tesseract-ocr ffmpeg curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
@@ -347,13 +344,15 @@ EOF
 
 Local Home Assistant add-on wrapper generated/repaired by Cleanup Stale Add-on Wrappers.
 Source must be cloned by GitHub Project Launcher into `source/`.
+
+Debian Trixie note: this wrapper uses `libopenblas-dev` instead of the removed `libatlas-base-dev` package.
 EOF
   echo "Repaired wrapper: $dir"
   note_source "$dir" "FamilyRoot"
 }
 
 repair_pollie_addon
-repair_node_addon "quote_machine" "Quote Machine" "quote_machine" "Gallagher Security Quoting Tool" "3000" "" "" "/data/quote_machine"
+repair_node_addon "quote_machine" "Quote Machine" "quote_machine" "Gallagher Security Quoting Tool" "3000" "/data/quote_machine"
 repair_st_addon
 repair_family_addon
 
