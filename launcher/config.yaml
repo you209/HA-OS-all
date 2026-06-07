@@ -1,5 +1,5 @@
 name: GitHub Project Launcher
-version: "0.2.3"
+version: "0.2.4"
 slug: github_project_launcher
 description: Private GitHub launcher for syncing and managing Dale's projects on Home Assistant
 url: https://github.com/you209/Launcher
@@ -19,6 +19,7 @@ map:
   - type: data
     read_only: false
 hassio_api: true
+hassio_role: manager
 options:
   github_username: you209
   launcher_repo: you209/Launcher
