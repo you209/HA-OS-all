@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== Cleanup Stale Add-on Wrappers ==="
+BASE=/addons
+
+echo "=== Cleanup + Repair Stale Add-on Wrappers ==="
 echo "Checking /addons for old wrappers that still clone private GitHub repos..."
 
 BAD_PATTERNS=(
@@ -14,13 +16,9 @@ BAD_PATTERNS=(
 
 CANDIDATE_DIRS=(
   "/addons/find-my-local-pollie"
-  "/addons/find_my_local_pollie"
   "/addons/quote-machine"
-  "/addons/quote_machine"
   "/addons/st"
-  "/addons/st_security_tool"
   "/addons/family-database"
-  "/addons/family_database"
   "/addons/familyroot"
 )
 
@@ -54,11 +52,245 @@ done
 echo "Searching wider /addons tree for any remaining old private clone Dockerfiles..."
 while IFS= read -r file; do
   dir="$(dirname "$file")"
-  echo "Removing stale wrapper containing bad Dockerfile: $dir"
-  rm -rf "$dir"
-  removed=$((removed + 1))
+  case "$dir" in
+    /addons/find_my_local_pollie|/addons/quote_machine|/addons/st_security_tool|/addons/family_database)
+      echo "Repairing managed wrapper instead of deleting: $dir"
+      ;;
+    *)
+      echo "Removing stale wrapper containing bad Dockerfile: $dir"
+      rm -rf "$dir"
+      removed=$((removed + 1))
+      ;;
+  esac
 done < <(grep -RslE "github.com/you209/(Find-My-Local-Pollie|Quote-Machine|ST|Family-Database)\.git|ghcr\.io/you209/quote-machine-addon" /addons 2>/dev/null || true)
 
+write_file() {
+  local path="$1"
+  mkdir -p "$(dirname "$path")"
+  cat > "$path"
+}
+
+repair_node_addon() {
+  local folder="$1"
+  local name="$2"
+  local slug="$3"
+  local desc="$4"
+  local host_port="$5"
+  local prebuild="$6"
+  local build_cmd="$7"
+  local data_dir="$8"
+
+  local dir="$BASE/$folder"
+  if [ ! -d "$dir/source" ]; then
+    echo "Skipping $name repair: $dir/source is missing. Run Launcher sync first."
+    return 0
+  fi
+
+  rm -f "$dir/build.yaml" "$dir/build.yml" "$dir/config.yml"
+
+  write_file "$dir/config.yaml" <<EOF
+name: $name
+version: "0.1.0"
+slug: $slug
+description: $desc
+arch:
+  - amd64
+startup: application
+boot: manual
+init: false
+webui: "http://[HOST]:[PORT:3000]"
+ports:
+  3000/tcp: $host_port
+ports_description:
+  3000/tcp: Web interface
+map:
+  - type: data
+    read_only: false
+options: {}
+schema: {}
+EOF
+
+  write_file "$dir/Dockerfile" <<EOF
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+COPY source/package*.json ./
+RUN npm ci || npm install
+
+COPY source/ ./
+$prebuild
+$build_cmd
+
+COPY run.sh /run.sh
+RUN chmod a+x /run.sh
+
+EXPOSE 3000
+CMD ["/run.sh"]
+EOF
+
+  write_file "$dir/run.sh" <<EOF
+#!/usr/bin/env bash
+set -e
+mkdir -p $data_dir
+export NODE_ENV=production
+export PORT=3000
+cd /app
+exec npm start
+EOF
+  chmod +x "$dir/run.sh"
+
+  write_file "$dir/README.md" <<EOF
+# $name
+
+Local Home Assistant add-on generated/repaired by Cleanup Stale Add-on Wrappers.
+EOF
+
+  echo "Repaired wrapper: $dir"
+}
+
+repair_st_addon() {
+  local dir="$BASE/st_security_tool"
+  if [ ! -d "$dir/source" ]; then
+    echo "Skipping ST repair: $dir/source is missing. Run Launcher sync first."
+    return 0
+  fi
+
+  rm -f "$dir/build.yaml" "$dir/build.yml" "$dir/config.yml"
+
+  write_file "$dir/config.yaml" <<'EOF'
+name: ST Security Tool
+version: "0.1.0"
+slug: st_security_tool
+description: Security tooling platform for Tecom, Hikvision, Gallagher and site-based security work
+arch:
+  - amd64
+startup: application
+boot: manual
+init: false
+webui: "http://[HOST]:[PORT:8000]"
+ports:
+  8000/tcp: 8000
+ports_description:
+  8000/tcp: Web/API interface
+map:
+  - type: data
+    read_only: false
+options: {}
+schema: {}
+EOF
+
+  write_file "$dir/Dockerfile" <<'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl libglib2.0-0 libsm6 libxext6 libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
+COPY source/ /app/
+RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+COPY run.sh /run.sh
+RUN chmod a+x /run.sh
+EXPOSE 8000
+CMD ["/run.sh"]
+EOF
+
+  write_file "$dir/run.sh" <<'EOF'
+#!/usr/bin/env bash
+set -e
+mkdir -p /data/st
+export ST_DATA_DIR=/data/st
+export PYTHONPATH=/app/backend
+cd /app/backend
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+EOF
+  chmod +x "$dir/run.sh"
+
+  write_file "$dir/README.md" <<'EOF'
+# ST Security Tool
+
+Local Home Assistant add-on generated/repaired by Cleanup Stale Add-on Wrappers.
+EOF
+
+  echo "Repaired wrapper: $dir"
+}
+
+repair_family_addon() {
+  local dir="$BASE/family_database"
+  if [ ! -d "$dir/source" ]; then
+    echo "Skipping FamilyRoot repair: $dir/source is missing. Run Launcher sync first."
+    return 0
+  fi
+
+  rm -f "$dir/build.yaml" "$dir/build.yml" "$dir/config.yml"
+
+  write_file "$dir/config.yaml" <<'EOF'
+name: FamilyRoot
+version: "0.1.0"
+slug: family_database
+description: Local-first family history database with photos, family tree, timeline and map.
+arch:
+  - amd64
+startup: application
+boot: manual
+init: false
+webui: "http://[HOST]:[PORT:5050]"
+ports:
+  5050/tcp: 5050
+ports_description:
+  5050/tcp: Web interface
+map:
+  - type: data
+    read_only: false
+options: {}
+schema: {}
+watchdog: "http://[HOST]:[PORT:5050]/api/health"
+EOF
+
+  write_file "$dir/Dockerfile" <<'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libatlas-base-dev libglib2.0-0 libsm6 libxext6 libxrender-dev \
+    tesseract-ocr ffmpeg curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*
+COPY source/ /app/
+RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+RUN cd /app/frontend && npm install && npm run build
+COPY run.sh /run.sh
+RUN chmod a+x /run.sh
+EXPOSE 5050
+CMD ["/run.sh"]
+EOF
+
+  write_file "$dir/run.sh" <<'EOF'
+#!/usr/bin/env bash
+set -e
+mkdir -p /data/familyroot/data /data/familyroot/media
+rm -rf /app/data
+ln -s /data/familyroot/data /app/data
+rm -rf /app/media
+ln -s /data/familyroot/media /app/media
+cd /app/backend
+exec python app.py
+EOF
+  chmod +x "$dir/run.sh"
+
+  write_file "$dir/README.md" <<'EOF'
+# FamilyRoot
+
+Local Home Assistant add-on generated/repaired by Cleanup Stale Add-on Wrappers.
+EOF
+
+  echo "Repaired wrapper: $dir"
+}
+
+repair_node_addon "find_my_local_pollie" "Find My Local Pollie" "find_my_local_pollie" "Find local political representatives from Home Assistant" "3001" "RUN npx prisma generate || true" "RUN npm run build" "/data/find-my-local-pollie"
+repair_node_addon "quote_machine" "Quote Machine" "quote_machine" "Gallagher Security Quoting Tool" "3000" "" "" "/data/quote-machine"
+repair_st_addon
+repair_family_addon
+
 echo "Removed $removed stale wrapper folder(s)."
-echo "Now restart GitHub Project Launcher, run Sync, then run: ha addons reload"
-echo "=== Cleanup complete ==="
+echo "Now run: ha addons reload"
+echo "=== Cleanup + repair complete ==="
