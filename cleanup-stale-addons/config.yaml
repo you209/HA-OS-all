@@ -1,0 +1,16 @@
+name: Cleanup Stale Add-on Wrappers
+version: "1.0.0"
+slug: cleanup_stale_addons
+description: Removes old local add-on wrapper folders that still contain private GitHub clone Dockerfiles
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: once
+boot: manual
+init: false
+map:
+  - type: addons
+    read_only: false
+options: {}
+schema: {}
