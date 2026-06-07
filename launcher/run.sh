@@ -6,6 +6,7 @@ LAUNCHER_DIR=/data/launcher
 VENV_DIR=/data/venv
 LOGS_DIR=/data/logs
 ASKPASS=/tmp/github-askpass.sh
+APP_REPOS_JSON=/data/app_repositories.json
 
 mkdir -p /data "$LOGS_DIR" /addons
 
@@ -16,7 +17,8 @@ get_opt() {
 GITHUB_USERNAME="$(get_opt '.github_username')"
 LAUNCHER_REPO="$(get_opt '.launcher_repo')"
 LAUNCHER_BRANCH="$(get_opt '.launcher_branch')"
-GITHUB_TOKEN="$(get_opt '.github_token')"
+GITHUB_TOKEN="$(get_opt '.launcher_token')"
+LEGACY_GITHUB_TOKEN="$(get_opt '.github_token')"
 ADMIN_USERNAME="$(get_opt '.admin_username')"
 ADMIN_PASSWORD="$(get_opt '.admin_password')"
 AUTO_PULL="$(get_opt '.auto_pull')"
@@ -30,11 +32,20 @@ SYNC_INTERVAL="$(get_opt '.sync_interval_minutes')"
 : "${AUTO_PULL:=true}"
 : "${SYNC_INTERVAL:=15}"
 
+# Backward compatibility for the older config field.
+if [ -z "$GITHUB_TOKEN" ] && [ -n "$LEGACY_GITHUB_TOKEN" ]; then
+  GITHUB_TOKEN="$LEGACY_GITHUB_TOKEN"
+fi
+
 if [ -z "$GITHUB_TOKEN" ]; then
-  echo "ERROR: github_token is empty. Add a fine-grained GitHub token in the add-on options."
-  echo "The token only needs read access to the private repos you want this launcher to sync."
+  echo "ERROR: launcher_token is empty. Add a fine-grained GitHub token that can read ${LAUNCHER_REPO}."
+  echo "Use one fine-grained token per app under app_repositories. Each app token only needs Contents: read-only for that one repo."
   exit 1
 fi
+
+# Store the per-app repo token list on the HA box only. This file is not committed to GitHub.
+jq -c '.app_repositories // []' "$OPTIONS" > "$APP_REPOS_JSON"
+chmod 600 "$APP_REPOS_JSON"
 
 if [ ! -f /data/secret_key ]; then
   python - <<'PY'
@@ -91,6 +102,7 @@ ADMIN_USERNAME=${ADMIN_USERNAME}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 GITHUB_USERNAME=${GITHUB_USERNAME}
 GITHUB_TOKEN=${GITHUB_TOKEN}
+APP_REPOSITORIES_JSON=${APP_REPOS_JSON}
 APPS_DIR=/addons
 LOGS_DIR=${LOGS_DIR}
 DATA_DIR=/data
