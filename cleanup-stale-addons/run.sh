@@ -3,7 +3,7 @@ set -euo pipefail
 
 BASE=/addons
 
-echo "=== Cleanup + Force Repair Add-on Wrappers v1.4.0 ==="
+echo "=== Cleanup + Force Repair Add-on Wrappers v1.4.2 ==="
 echo "Using BASE=$BASE"
 
 BAD_PATTERNS=(
