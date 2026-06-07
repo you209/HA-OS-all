@@ -1,5 +1,5 @@
 name: GitHub Project Launcher
-version: "0.2.2"
+version: "0.2.3"
 slug: github_project_launcher
 description: Private GitHub launcher for syncing and managing Dale's projects on Home Assistant
 url: https://github.com/you209/Launcher
@@ -8,10 +8,7 @@ arch:
 startup: application
 boot: manual
 init: false
-webui: "http://[HOST]:[PORT:8000]"
-ingress: true
-ingress_port: 8000
-panel_icon: mdi:github
+webui: "http://[HOST]:[PORT:8000]/login"
 ports:
   8000/tcp: 8002
 ports_description:
