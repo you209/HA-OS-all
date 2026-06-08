@@ -1,0 +1,26 @@
+name: Quote Machine
+description: Gallagher Security quoting tool served as a Home Assistant app.
+version: "1.0.0"
+slug: quote_machine
+url: https://github.com/you209/Quote-Machine
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: manual
+image: ghcr.io/you209/quote-machine
+legacy: true
+webui: "http://[HOST]:[PORT:3000]"
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:calculator-variant
+panel_title: Quote Machine
+ports:
+  3000/tcp: 3003
+ports_description:
+  3000/tcp: Quote Machine web interface
+map:
+  - share:rw
+options: {}
+schema: {}
