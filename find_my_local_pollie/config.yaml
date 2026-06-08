@@ -1,6 +1,6 @@
 name: Find My Local Pollie
 description: Local political representative lookup app served as a Home Assistant app.
-version: "1.0.1"
+version: "1.0.0"
 slug: find_my_local_pollie
 url: https://github.com/you209/Find-My-Local-Pollie
 arch:
