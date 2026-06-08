@@ -1,0 +1,24 @@
+name: DA HelpHub
+description: HelpHub AU local support information app served as a Home Assistant app.
+version: "1.0.0"
+slug: da_helphub
+url: https://github.com/you209/DA
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: manual
+image: ghcr.io/you209/da-helphub
+legacy: true
+webui: "http://[HOST]:[PORT:3000]"
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:lifebuoy
+panel_title: DA HelpHub
+ports:
+  3000/tcp: 3002
+ports_description:
+  3000/tcp: DA HelpHub web interface
+options: {}
+schema: {}
