@@ -1,0 +1,24 @@
+name: Find My Local Pollie
+description: Local political representative lookup app served as a Home Assistant app.
+version: "1.0.0"
+slug: find_my_local_pollie
+url: https://github.com/you209/Find-My-Local-Pollie
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: manual
+image: ghcr.io/you209/find-my-local-pollie
+legacy: true
+webui: "http://[HOST]:[PORT:3000]"
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:account-tie
+panel_title: Pollie
+ports:
+  3000/tcp: 3001
+ports_description:
+  3000/tcp: Find My Local Pollie web interface
+options: {}
+schema: {}
