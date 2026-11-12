@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Keep local credentials and configuration files private.
+umask 077
 
 OPTIONS=/data/options.json
 LAUNCHER_DIR=/data/launcher
@@ -22,14 +24,25 @@ LEGACY_GITHUB_TOKEN="$(get_opt '.github_token')"
 ADMIN_USERNAME="$(get_opt '.admin_username')"
 ADMIN_PASSWORD="$(get_opt '.admin_password')"
 AUTO_PULL="$(get_opt '.auto_pull')"
+REPAIR_WRAPPERS="$(get_opt '.repair_addon_wrappers')"
 SYNC_INTERVAL="$(get_opt '.sync_interval_minutes')"
 
 : "${GITHUB_USERNAME:=you209}"
 : "${LAUNCHER_REPO:=you209/Launcher}"
 : "${LAUNCHER_BRANCH:=main}"
 : "${ADMIN_USERNAME:=admin}"
-: "${ADMIN_PASSWORD:=change-this-now}"
-: "${AUTO_PULL:=true}"
+: "${ADMIN_PASSWORD:=}"
+# Reject insecure defaults before cloning or starting the privileged service.
+if [ "${#ADMIN_PASSWORD}" -lt 16 ] || [ "$ADMIN_PASSWORD" = "change-this-now" ] || [ "$ADMIN_PASSWORD" = "admin" ]; then
+  echo "ERROR: Configure a unique Launcher administrator password of 16+ characters."
+  exit 1
+fi
+if [[ "$ADMIN_PASSWORD" =~ [[:cntrl:]] ]]; then
+  echo "ERROR: Launcher administrator password cannot contain control characters."
+  exit 1
+fi
+: "${AUTO_PULL:=false}"
+: "${REPAIR_WRAPPERS:=false}"
 : "${SYNC_INTERVAL:=15}"
 
 # Backward compatibility for the older config field.
@@ -73,14 +86,18 @@ export GITHUB_TOKEN
 REPO_URL="https://github.com/${LAUNCHER_REPO}.git"
 
 if [ -d "$LAUNCHER_DIR/.git" ]; then
-  echo "Updating Launcher from ${LAUNCHER_REPO}..."
-  git -C "$LAUNCHER_DIR" remote set-url origin "$REPO_URL"
-  git -C "$LAUNCHER_DIR" fetch --depth=1 origin "$LAUNCHER_BRANCH"
-  git -C "$LAUNCHER_DIR" checkout "$LAUNCHER_BRANCH"
-  git -C "$LAUNCHER_DIR" reset --hard "origin/${LAUNCHER_BRANCH}"
+  if [ "$AUTO_PULL" = "true" ]; then
+    echo "Auto-pull explicitly enabled: updating Launcher from ${LAUNCHER_REPO}..."
+    git -C "$LAUNCHER_DIR" remote set-url origin "$REPO_URL"
+    git -C "$LAUNCHER_DIR" fetch --depth=1 origin "$LAUNCHER_BRANCH"
+    git -C "$LAUNCHER_DIR" checkout "$LAUNCHER_BRANCH"
+    git -C "$LAUNCHER_DIR" reset --hard "origin/${LAUNCHER_BRANCH}"
+  else
+    echo "Using installed Launcher revision; no automatic code reset."
+    git -C "$LAUNCHER_DIR" rev-parse --verify HEAD >/dev/null
+  fi
 else
-  echo "Cloning Launcher from ${LAUNCHER_REPO}..."
-  rm -rf "$LAUNCHER_DIR"
+  echo "First install: cloning Launcher from ${LAUNCHER_REPO}..."
   git clone --depth=1 --branch "$LAUNCHER_BRANCH" "$REPO_URL" "$LAUNCHER_DIR"
   git -C "$LAUNCHER_DIR" remote set-url origin "$REPO_URL"
 fi
@@ -109,7 +126,7 @@ DATA_DIR=/data
 DB_PATH=/data/launcher.db
 SYNC_INTERVAL_MINUTES=${SYNC_INTERVAL}
 AUTO_PULL=${AUTO_PULL}
-AUTO_ADD_NEW_REPOS=true
+AUTO_ADD_NEW_REPOS=false
 EOF
 
 repair_local_addon_wrappers() {
@@ -386,14 +403,18 @@ print("Local add-on wrappers repaired where source/ folders exist.")
 PY
 }
 
-repair_local_addon_wrappers || true
-
-(
-  while true; do
-    sleep 60
-    repair_local_addon_wrappers || true
-  done
-) &
+if [ "$REPAIR_WRAPPERS" = "true" ]; then
+  echo "Automatic add-on wrapper repair explicitly enabled."
+  repair_local_addon_wrappers || true
+  (
+    while true; do
+      sleep 60
+      repair_local_addon_wrappers || true
+    done
+  ) &
+else
+  echo "Automatic add-on wrapper repair disabled."
+fi
 
 cd "$LAUNCHER_DIR"
 echo "Starting GitHub Project Launcher on port 8000..."

@@ -1,7 +1,7 @@
 name: GitHub Project Launcher
-version: "0.2.5"
+version: "0.2.6"
 slug: github_project_launcher
-description: Private GitHub launcher for syncing and managing Dale's projects on Home Assistant
+description: Legacy local Launcher host (prefer standalone Proxmox deployment; secure credentials required)
 url: https://github.com/you209/Launcher
 arch:
   - amd64
@@ -58,8 +58,9 @@ options:
       branch: main
       token: ""
   admin_username: admin
-  admin_password: "change-this-now"
-  auto_pull: true
+  admin_password: ""
+  auto_pull: false
+  repair_addon_wrappers: false
   sync_interval_minutes: 15
 schema:
   github_username: str
@@ -76,4 +77,5 @@ schema:
   admin_username: str
   admin_password: password
   auto_pull: bool
+  repair_addon_wrappers: bool
   sync_interval_minutes: int

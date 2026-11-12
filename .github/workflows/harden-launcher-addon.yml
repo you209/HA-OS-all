@@ -1,0 +1,51 @@
+name: Harden legacy Launcher add-on
+
+on:
+  push:
+    branches: ["security/harden-launcher-addon-20261112"]
+    paths:
+      - "launcher/run.sh"
+      - "launcher/config.yaml"
+      - "launcher/SECURITY.md"
+      - ".github/workflows/harden-launcher-addon.yml"
+  pull_request:
+    paths:
+      - "launcher/run.sh"
+      - "launcher/config.yaml"
+      - "launcher/SECURITY.md"
+      - ".github/workflows/harden-launcher-addon.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pyyaml
+      - name: Check shell syntax
+        run: bash -n launcher/run.sh
+      - name: Validate startup secret and update protections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          conf = yaml.safe_load(Path("launcher/config.yaml").read_text())
+          run = Path("launcher/run.sh").read_text()
+          opts = conf["options"]
+          assert opts["admin_password"] == "", "Never publish a default login"
+          assert opts["auto_pull"] is False, "Code updates must require opt-in"
+          assert opts["repair_addon_wrappers"] is False, "Recurring add-on filesystem modifications require opt-in"
+          assert "umask 077" in run
+          assert 'if [ "${#ADMIN_PASSWORD}" -lt 16 ]' in run
+          assert 'if [ "$AUTO_PULL" = "true" ]' in run
+          assert "Using installed Launcher revision; no automatic code reset." in run
+          assert "AUTO_ADD_NEW_REPOS=false" in run
+          assert 'if [ "$REPAIR_WRAPPERS" = "true" ]' in run
+          assert len(run.splitlines()) < 500, "Unexpected launcher script expansion"
+          print("Launcher add-on startup hardening passed")
+          PY
