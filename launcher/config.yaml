@@ -60,6 +60,7 @@ options:
   admin_username: admin
   admin_password: ""
   auto_pull: false
+  repair_addon_wrappers: false
   sync_interval_minutes: 15
 schema:
   github_username: str
@@ -76,4 +77,5 @@ schema:
   admin_username: str
   admin_password: password
   auto_pull: bool
+  repair_addon_wrappers: bool
   sync_interval_minutes: int
