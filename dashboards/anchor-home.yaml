@@ -1,0 +1,48 @@
+# Anchor Home — Home Assistant native dashboard starter
+# Import via Settings > Dashboards > Add dashboard, then Edit dashboard >
+# three-dot menu > Raw configuration editor. Do not modify configuration.yaml.
+# Replace todo.household_jobs and todo.workshop_parts with your own entity IDs
+# created through Settings > Devices & services > Helpers > Local to-do.
+# Shopping list is usually todo.shopping_list; verify in Developer tools > States.
+# All list editing is handled by Home Assistant; no API key or token is in this file.
+title: Anchor Home
+views:
+  - title: Household
+    path: household
+    icon: mdi:home-heart
+    cards:
+      - type: markdown
+        content: >
+          ## Welcome home
+          Household shopping and chores live in Home Assistant.
+          Anchor can later show selected lists through Launcher, with your approval.
+      - type: todo-list
+        entity: todo.shopping_list
+        title: Groceries
+        hide_completed: true
+      - type: todo-list
+        entity: todo.household_jobs
+        title: Household jobs
+        hide_completed: true
+      - type: markdown
+        content: >
+          **Next cards:** connect your real calendar, weather and solar entities.
+          Keep personal tasks and private data off unattended/shared displays.
+
+  - title: Workshop
+    path: workshop
+    icon: mdi:tools
+    cards:
+      - type: markdown
+        content: >
+          ## Workshop
+          Keep physical jobs in Home Assistant; engineering checkpoints and
+          BOMs stay in Anchor / Project Brain.
+      - type: todo-list
+        entity: todo.workshop_parts
+        title: Workshop shopping and parts to buy
+        hide_completed: true
+      - type: markdown
+        content: >
+          **Coming next:** a read-only Project Brain / Where Was I card
+          backed by an approved Launcher API, not a public source-code feed.
