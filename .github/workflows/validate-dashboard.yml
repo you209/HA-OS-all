@@ -1,0 +1,46 @@
+name: Check Anchor Home dashboard YAML
+
+on:
+  push:
+    branches: ["feature/anchor-household-dashboard-20261112"]
+    paths:
+      - "dashboards/**"
+      - ".github/workflows/validate-dashboard.yml"
+  pull_request:
+    paths:
+      - "dashboards/**"
+      - ".github/workflows/validate-dashboard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install pyyaml
+      - name: Validate dashboard is native and contains no secrets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import yaml
+
+          text = Path("dashboards/anchor-home.yaml").read_text()
+          doc = yaml.safe_load(text)
+          assert doc.get("title") == "Anchor Home"
+          assert len(doc.get("views", [])) >= 2
+          views = doc["views"]
+          assert {v["path"] for v in views} == {"household", "workshop"}
+          all_cards = [c for v in views for c in v["cards"]]
+          assert any(c["type"] == "todo-list" for c in all_cards)
+          assert all(c["type"] in {"todo-list", "markdown"} for c in all_cards)
+          assert all(re.fullmatch(r"todo\.[a-z0-9_]+", c["entity"])
+                     for c in all_cards if c["type"] == "todo-list")
+          assert not re.search(r"(?i)Bearer\s+|github_pat_|sk-proj-|access_token:",text)
+          print("Native Home Assistant dashboard YAML passed")
+          PY
