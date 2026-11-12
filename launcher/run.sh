@@ -24,6 +24,7 @@ LEGACY_GITHUB_TOKEN="$(get_opt '.github_token')"
 ADMIN_USERNAME="$(get_opt '.admin_username')"
 ADMIN_PASSWORD="$(get_opt '.admin_password')"
 AUTO_PULL="$(get_opt '.auto_pull')"
+REPAIR_WRAPPERS="$(get_opt '.repair_addon_wrappers')"
 SYNC_INTERVAL="$(get_opt '.sync_interval_minutes')"
 
 : "${GITHUB_USERNAME:=you209}"
@@ -41,6 +42,7 @@ if [[ "$ADMIN_PASSWORD" =~ [[:cntrl:]] ]]; then
   exit 1
 fi
 : "${AUTO_PULL:=false}"
+: "${REPAIR_WRAPPERS:=false}"
 : "${SYNC_INTERVAL:=15}"
 
 # Backward compatibility for the older config field.
@@ -401,14 +403,18 @@ print("Local add-on wrappers repaired where source/ folders exist.")
 PY
 }
 
-repair_local_addon_wrappers || true
-
-(
-  while true; do
-    sleep 60
-    repair_local_addon_wrappers || true
-  done
-) &
+if [ "$REPAIR_WRAPPERS" = "true" ]; then
+  echo "Automatic add-on wrapper repair explicitly enabled."
+  repair_local_addon_wrappers || true
+  (
+    while true; do
+      sleep 60
+      repair_local_addon_wrappers || true
+    done
+  ) &
+else
+  echo "Automatic add-on wrapper repair disabled."
+fi
 
 cd "$LAUNCHER_DIR"
 echo "Starting GitHub Project Launcher on port 8000..."
